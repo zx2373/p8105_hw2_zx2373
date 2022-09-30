@@ -81,10 +81,11 @@ mr_df =
     range = cell_cols("A:N")) %>% 
   janitor::clean_names() %>% 
   drop_na(dumpster) %>% 
-  mutate(
-    sports_balls = round(sports_balls),
-    sports_balls = as.integer(sports_balls)
-  )
+  filter(dumpster != "Grand Total") %>%
+  mutate(sports_balls = as.integer(round(sports_balls, 0)),
+         month = recode(month,"Decemeber" = "December"),
+         dumpster = as.integer(dumpster)) %>% 
+  rename(weight = weight_tons, volume = volume_cubic_yards)
 ```
 
 ###Read the Professor Trash Wheel dataset.
@@ -97,16 +98,26 @@ prof_df =
     range = cell_cols("A:N")) %>% 
   janitor::clean_names() %>% 
   drop_na(dumpster) %>% 
-  mutate(
-    sports_balls = round(sports_balls),
-    sports_balls = as.integer(sports_balls)
-  )
+  filter(dumpster != "Grand Total") %>%
+  mutate(sports_balls = as.integer(round(sports_balls, 0))) %>% 
+  rename(weight = weight_tons, volume = volume_cubic_yards)
 ```
 
 ###Combine two datasets.
 
 ```{r}
+mr_merge_df = 
+  mr_df %>% 
+  mutate(source = "Mr. Trash Wheel")
 
+prof_merge_df = 
+  prof_df %>% 
+  mutate(source = "Professor Trash Wheel")
+
+merge_df = bind_rows(mr_merge_df, prof_merge_df)
+
+view(merge_df)
+show(merge_df)
 ```
 
 
