@@ -2,9 +2,7 @@
 title: "p8105_hw2_zx2373"
 author: Ziyan Xu
 date: 09/28/2022
-output: 
-  github_document:
-    toc: true
+output: github_document
 ---
 
 ```{r message = FALSE}
@@ -12,9 +10,9 @@ library(tidyverse)
 library(readxl)
 ```
 
-#Problem 1
+## Problem 1
 
-###Read and clean the NYC Transit dataset. 
+### Read and clean the NYC Transit dataset. 
 
 ```{r message = FALSE}
 nyctransit_df = 
@@ -24,7 +22,7 @@ nyctransit_df =
   rename(
     ada_compliance = ada
     ) %>% 
-  select(
+  dplyr::select(
     line, station_name, station_latitude, station_longitude, route1:route11, entry, vending, entrance_type, ada_compliance
     ) %>% 
   mutate(
@@ -49,7 +47,7 @@ Other related questions:
 
 - The proportion of station entrances / exits without vending allow entrance is `r  nyctransit_df %>% filter(vending == "NO" & entry == "TRUE") %>% nrow / nyctransit_df %>% filter(vending == "NO") %>% nrow`
 
-###Reformat data so that route number and route name are distinct variables: 
+### Reformat data so that route number and route name are distinct variables: 
 
 ```{r}
 nyctransit_df_tidy = 
@@ -69,63 +67,164 @@ nyctransit_df_tidy =
 - Of the stations that serve the A train, there are `r nyctransit_df_tidy %>% distinct(station_name, line, .keep_all = TRUE) %>% filter(routes_number == "A" & ada_compliance == "TRUE") %>% nrow` ADA compliant.
 
 
-#Problem 2
+## Problem 2
 
-###Read the Mr. Trash Wheel dataset.
+### Read the Mr. Trash Wheel dataset.
 
 ```{r}
 mr_df = 
   read_xlsx(
-    "Trash-Wheel-Collection-Totals-7-2020-2.xlsx",
+    "Trash Wheel Collection Data.xlsx",
     sheet = "Mr. Trash Wheel",
     range = cell_cols("A:N")) %>% 
   janitor::clean_names() %>% 
   drop_na(dumpster) %>% 
   filter(dumpster != "Grand Total") %>%
-  mutate(sports_balls = as.integer(round(sports_balls, 0)),
-         month = recode(month,"Decemeber" = "December"),
+  mutate(sports_balls = as.integer(round(sports_balls,0)),
          dumpster = as.integer(dumpster)) %>% 
   rename(weight = weight_tons, volume = volume_cubic_yards)
+view(mr_df)
 ```
 
-###Read the Professor Trash Wheel dataset.
+### Read the Professor Trash Wheel dataset.
 
 ```{r}
 prof_df = 
   read_xlsx(
-    "Trash-Wheel-Collection-Totals-7-2020-2.xlsx",
+    "Trash Wheel Collection Data.xlsx",
     sheet = "Professor Trash Wheel",
     range = cell_cols("A:N")) %>% 
   janitor::clean_names() %>% 
   drop_na(dumpster) %>% 
-  filter(dumpster != "Grand Total") %>%
-  mutate(sports_balls = as.integer(round(sports_balls, 0))) %>% 
-  rename(weight = weight_tons, volume = volume_cubic_yards)
+  rename(weight = weight_tons, volume = volume_cubic_yards) %>% 
+  dplyr::select(-x14)
+view(prof_df)
 ```
 
-###Combine two datasets.
+### Combine two datasets.
 
 ```{r}
 mr_merge_df = 
-  mr_df %>% 
-  mutate(source = "Mr. Trash Wheel")
+  mutate(mr_df, Trash_wheel = c('Mr'), dumpster = as.character(dumpster))
 
 prof_merge_df = 
-  prof_df %>% 
-  mutate(source = "Professor Trash Wheel")
+  mutate(prof_df,
+         Trash_wheel = c('Pro'),
+         dumpster = as.character(dumpster),
+         year = as.character(year))
 
-merge_df = bind_rows(mr_merge_df, prof_merge_df)
+merge_df = bind_rows(mr_merge_df, prof_merge_df) %>% 
+  relocate(Trash_wheel, .before = "weight")
 
 view(merge_df)
 show(merge_df)
 ```
 
-
-#Problem 3
-
-###Clean the data in pols-month.csv
+### Total weight of trash collected by Professor Trash Wheel
 
 ```{r}
-
+total_weight = sum(prof_df$weight) %>% 
+show()
 ```
+
+### Total number of sports balls collected by Mr. Trash Wheel in 2020
+
+```{r}
+total_ball = mr_df %>% 
+  filter(year == "2020") %>% 
+  pull(sports_balls) %>% 
+  sum() %>% 
+show()
+```
+
+- There are `r nrow(merge_df)` observations in the merged dataset, including `r ncol(merge_df)` variables, namely `r names(merge_df)`.
+
+- The total weight of trash collected by Professor Trash Wheel is `r total_weight` tons, and the total number of sports balls collected by Mr. Trash Wheel in 2020 was `r total_ball`.
+
+
+## Problem 3
+
+### Clean the data in pols-month.csv
+
+```{r}
+Pols_month_df = read_csv(
+  "./fivethirtyeight_datasets/pols-month.csv") %>%
+  janitor::clean_names() %>% 
+  drop_na() %>% 
+  separate(mon, c("year","month","day")) %>%
+  mutate(
+    year = as.integer(year), month = as.integer(month), day = as.integer(day)) %>%
+  mutate(month = month.abb[month]) %>% 
+  mutate(president = ifelse(prez_gop == "0", "dem","gop")) %>% 
+  relocate(president, .before = "gov_gop") %>% 
+  dplyr::select(-prez_dem, -prez_gop, -day)
+```
+
+```{r}
+show(Pols_month_df)
+```
+
+### Clean the data in snp.csv
+
+```{r}
+snp_df = read_csv(
+  "./fivethirtyeight_datasets/snp.csv") %>%
+  janitor::clean_names() %>%
+  janitor::clean_names() %>% 
+  mutate(
+    date = lubridate::parse_date_time2(date,orders = "mdy", cutoff_2000 = 23)) %>% 
+  separate(date, c("year","month","day")) %>%
+  mutate(
+    year = as.integer(year), month = as.integer(month), day = as.integer(day)) %>%
+  mutate(month = month.abb[month]) %>% 
+  relocate(year, .before = "month") %>% 
+  dplyr::select(-day)
+```
+
+```{r}
+show(snp_df)
+```
+
+### Clean the data in unemployment.csv
+
+```{r}
+unemploy_df = read_csv(
+  "./fivethirtyeight_datasets/unemployment.csv") %>%
+  pivot_longer(
+    Jan:Dec,names_to = "month", values_to = "unemployment_rate") %>%
+  janitor::clean_names() 
+```
+
+```{r}
+show(unemploy_df)
+```
+
+### Join the datasets
+
+```{r}
+snp_pols = 
+  left_join(Pols_month_df, snp_df, by = c("year", "month")) 
+
+merge_df = 
+  left_join(snp_pols, unemploy_df, by = c("year", "month")) %>% 
+  view()
+```
+
+pols-month data :
+
+The data set describes the political distribution in the United State seperately in each year from 1947 to 2015 with 822 rows and 9 columns after cleaning. Variable President means whether the president is Republican or Democratic.
+
+snp data :
+
+The snp data set represents the closing values of the S&P stock index on the associated date from 1969 to 2068 with 787 rows and 2 columns. Year means the yaer of observation. Month means the month of observation. close means the closing calue.
+
+unemployment data :
+
+The unemployment data contains the unemployment rate in each month from 1948 to 2014 with 804 rows and 3 columns after changed to cleaned version. Year means the yaer of observation. Month means the month of observation. Percentage means unemployment rate.
+
+Combined dataset:
+
+This dataset combines the former three data on the scale of year and month. It shows data in economics(stock and unemployment rate) and politics(political distribution) in one sheet with 822 rows and 11 columns from 1947 to 2015.
+
+
 
